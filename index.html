@@ -90,10 +90,7 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 <script>
 const GOAL_MONEY = 300000;
 const GOAL_POWDER = 150;
-
-// Deine feste Datenbank-ID ist hier bereits eingetragen:
-const BIN_ID = "6a4412eef5f4af5e29494384";
-const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const API_URL = "https://kvdb.io/MN878gS7vXpXpX7vXpXpX/tracker_live_v2_f83a2";
 
 let data = [];
 let extras = {money:0, powder:0, cases:0};
@@ -110,35 +107,29 @@ const currentKW = getCurrentWeekNumber();
 document.getElementById("currentWeekTitle").textContent = `(Aktuelle Woche: KW ${currentKW})`;
 document.getElementById("week").value = currentKW;
 
-// Daten laden mit automatischem Reparatur-Netz für die neue Box
+// Daten laden
 async function loadFromCloud() {
   try {
-    const response = await fetch(`${API_URL}/latest`, {
-      headers: { "X-Bin-Meta": "false" }
-    });
-    
+    const response = await fetch(API_URL);
     if (response.ok) {
       const cloudData = await response.json();
-      
-      if (!cloudData || Object.keys(cloudData).length === 0 || !cloudData.data) {
-        data = [];
-        extras = {money:0, powder:0, cases:0};
-        userPhones = {};
-        await saveToCloud();
-      } else {
+      if (cloudData) {
         data = cloudData.data || [];
         extras = cloudData.extras || {money:0, powder:0, cases:0};
         userPhones = cloudData.userPhones || {};
       }
-      render();
+    } else {
+      data = [];
+      extras = {money:0, powder:0, cases:0};
+      userPhones = {};
     }
   } catch (e) {
-    console.error("Fehler beim Laden:", e);
-    data = data || [];
-    extras = extras || {money:0, powder:0, cases:0};
-    userPhones = userPhones || {};
-    render();
+    console.log("Erster Start: Cloud noch leer.");
+    data = [];
+    extras = {money:0, powder:0, cases:0};
+    userPhones = {};
   }
+  render();
 }
 
 // Daten speichern
@@ -147,208 +138,14 @@ async function saveToCloud() {
   const payload = { data, extras, userPhones };
   
   try {
-    const response = await fetch(API_URL, {
-      method: "PUT",
+    await fetch(API_URL, {
+      method: "POST",
       body: JSON.stringify(payload),
       headers: { "Content-Type": "application/json" }
     });
-    if(!response.ok) {
-      alert("Speichern fehlgeschlagen!");
-    }
   } catch(e) {
-    alert("Netzwerkfehler beim Speichern!");
+    console.error("Speicherfehler:", e);
   }
   document.getElementById("loadingNotice").style.display = "none";
   render();
 }
-
-function addExtra() {
-  const exM = document.getElementById("extraMoney");
-  const exP = document.getElementById("extraPowder");
-  const exC = document.getElementById("extraCases");
-
-  extras.money += (+exM.value || 0);
-  extras.powder += (+exP.value || 0);
-  extras.cases += (+exC.value || 0);
-  
-  exM.value = ""; exP.value = ""; exC.value = "";
-  saveToCloud();
-}
-
-function createUser() {
-  const inputNewName = document.getElementById("newUserName");
-  const inputNewPhone = document.getElementById("newUserPhone");
-  
-  const n = inputNewName.value.trim();
-  const phone = inputNewPhone.value.trim();
-  
-  if(!n) return alert("Bitte einen Namen für den neuen User eingeben.");
-  
-  userPhones[n] = phone || "";
-  inputNewName.value = "";
-  inputNewPhone.value = "";
-  saveToCloud();
-}
-
-function add() {
-  const inputName = document.getElementById("name");
-  const inputWeek = document.getElementById("week");
-  const inputMoney = document.getElementById("money");
-  const inputPowder = document.getElementById("powder");
-  const inputCases = document.getElementById("cases");
-
-  const n = inputName.value.trim();
-  const w = +inputWeek.value;
-  const m = +inputMoney.value || 0;
-  const p = +inputPowder.value || 0;
-  const c = +inputCases.value || 0;
-  
-  if(!n || !w) return alert("Bitte Name und Kalenderwoche eingeben.");
-  
-  if(userPhones[n] === undefined) userPhones[n] = "";
-  
-  data.push({n, w, m, p, c});
-  
-  inputName.value = "";
-  inputWeek.value = currentKW;
-  inputMoney.value = "";
-  inputPowder.value = "";
-  inputCases.value = "";
-  
-  saveToCloud();
-}
-
-function deleteEntry(index) {
-  if(confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
-    data.splice(index, 1);
-    saveToCloud();
-  }
-}
-
-function deleteUser(userName) {
-  if(confirm(`Möchtest du den User "${userName}" und ALLE seine Abgaben wirklich komplett löschen?`)) {
-    data = data.filter(entry => entry.n !== userName);
-    delete userPhones[userName];
-    saveToCloud();
-  }
-}
-
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    alert("Nummer kopiert: " + text);
-  });
-}
-
-function render() {
-  let sm = 0, sp = 0, sc = 0;
-  const rows = document.getElementById("rows");
-  const userOverview = document.getElementById("userOverview");
-  
-  rows.innerHTML = "";
-  const users = {};
-
-  for(const name in userPhones) {
-    users[name] = {};
-    users[name][currentKW] = { money: 0, powder: 0 };
-  }
-
-  data.forEach((e, i) => {
-    sm += e.m; 
-    sp += e.p; 
-    sc += (e.c || 0);
-    
-    rows.innerHTML += `<tr>
-    <td>${e.n}</td>
-    <td>KW ${e.w}</td>
-    <td>${e.m.toLocaleString("de-DE")}</td>
-    <td>${e.p}</td>
-    <td>${e.c || 0}</td>
-    <td><button class="btn-danger" onclick="deleteEntry(${i})">❌ Löschen</button></td>
-    </tr>`;
-
-    if(!users[e.n]) users[e.n] = {};
-    if(!users[e.n][e.w]) users[e.n][e.w] = { money: 0, powder: 0 };
-    
-    users[e.n][e.w].money += e.m;
-    users[e.n][e.w].powder += e.p;
-  });
-
-  userOverview.innerHTML = "";
-  for(const userName in users) {
-    const phone = userPhones[userName] || "";
-    let phoneHTML = "";
-    
-    if(phone) {
-      phoneHTML = `<span class="user-num">[${phone}] <button class="btn-copy" onclick="copyToClipboard('${phone.replace(/'/g, "\\'")}')">📋 Kopieren</button></span>`;
-    }
-
-    let userHTML = `
-     <div class="user-group">
-       <div class="user-header">
-         <h3 class="user-title">👤 ${userName} ${phoneHTML}</h3>
-         <button class="btn-user-danger" onclick="deleteUser('${userName.replace(/'/g, "\\'")}')">❌ User komplett löschen</button>
-       </div>
-       <ul class="week-status-list">`;
-    
-    const sortedWeeks = Object.keys(users[userName]).sort((a,b) => a - b);
-    
-    sortedWeeks.forEach(w => {
-      const weekData = users[userName][w];
-      const isGoalMet = weekData.money >= GOAL_MONEY && weekData.powder >= GOAL_POWDER;
-      const isCurrent = (+w === currentKW);
-      
-      let statusClass = '';
-      let statusText = '';
-      
-      if (isGoalMet) {
-        statusText = '✅ Erfüllt';
-        statusClass = 'ok';
-      } else if (weekData.money === 0 && weekData.powder === 0) {
-        if (isCurrent) {
-          statusText = 'noch offen';
-          statusClass = 'yellow';
-        } else {
-          statusText = '❌ Nicht abgegeben';
-          statusClass = 'bad';
-        }
-      } else {
-        statusText = 'noch offen';
-        statusClass = 'yellow';
-      }
-      
-      const isCurrentWeekBadge = isCurrent ? `<span class="current-week-badge">Aktuelle Woche</span>` : '';
-      
-      userHTML += `
-        <li class="week-status-item">
-          <strong>KW ${w}:</strong> 
-          <span class="status-badge ${statusClass}">${statusText}</span> 
-          ${isCurrentWeekBadge}
-          <span style="color:#aaa; font-size:14px; margin-left:5px;">(💵 ${weekData.money.toLocaleString("de-DE")} / ${GOAL_MONEY.toLocaleString("de-DE")} | 💥 ${weekData.powder} / ${GOAL_POWDER})</span>
-        </li>`;
-    });
-    
-    userHTML += `</ul></div>`;
-    userOverview.innerHTML += userHTML;
-  }
-  
-  if(Object.keys(users).length === 0) {
-    userOverview.innerHTML = "<p>Noch keine User-Einträge vorhanden.</p>";
-  }
-
-  const totalMoney = sm + extras.money;
-  const totalPowder = sp + extras.powder;
-  const totalCases = sc + extras.cases;
-  
-  document.getElementById("sumMoney").textContent = totalMoney.toLocaleString("de-DE");
-  document.getElementById("sumPowder").textContent = totalPowder.toLocaleString("de-DE");
-  document.getElementById("sumCases").textContent = totalCases.toLocaleString("de-DE");
-}
-
-// Beim Start Daten aus der Cloud laden
-loadFromCloud();
-
-// Alle 10 Sekunden automatisch prüfen, ob der Kollege was eingetragen hat
-setInterval(loadFromCloud, 10000);
-</script>
-</body>
-</html>
