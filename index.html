@@ -2,12 +2,12 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Tracker mit Google Sheets</title>
+<title>Wochen Tracker</title>
 <style>
-    body{background:#0b0b0d;color:#fff;font-family:sans-serif;padding:20px}
-    .card{background:#222;padding:20px;border-radius:15px;margin-bottom:10px}
-    input{padding:10px;width:80%;margin-bottom:10px}
-    button{padding:10px 20px;background:#0a84ff;border:none;border-radius:8px;color:#fff;cursor:pointer}
+body{background:#0b0b0d;color:#fff;font-family:sans-serif;padding:20px}
+.card{background:#222;padding:20px;border-radius:15px;margin-bottom:10px;max-width:500px}
+input{padding:10px;width:90%;margin-bottom:10px;border-radius:8px;border:none}
+button{padding:10px 20px;background:#0a84ff;border:none;border-radius:8px;color:#fff;cursor:pointer}
 </style>
 </head>
 <body>
@@ -15,31 +15,36 @@
         <h1>🍎 Wochen Tracker</h1>
         <input id="userName" placeholder="Name">
         <input id="userMoney" placeholder="Schwarzgeld" type="number">
-        <button onclick="saveData()">Speichern</button>
+        <button onclick="saveData()">Daten speichern</button>
+        <p id="status"></p>
     </div>
-    <div id="status"></div>
 
 <script>
-// DEINE URL
 const API_URL = "https://script.google.com/macros/s/AKfycbybtiudUCe7UtnYXukgEJ9hB9R-4WgqZZxmy7pDZ1rRIsdCzU-eIezJQx1WctLRAFsQ/exec";
 
 async function saveData() {
     const name = document.getElementById("userName").value;
     const money = document.getElementById("userMoney").value;
     
-    // Wir senden die Daten als JSON-Text
-    const payload = { name: name, money: money, date: new Date().toLocaleDateString() };
+    if(!name) return alert("Bitte Name eingeben!");
+
+    const payload = { name, money, date: new Date().toLocaleDateString() };
     
-    document.getElementById("status").innerText = "Sende Daten...";
+    document.getElementById("status").innerText = "Sende an Google...";
 
-    await fetch(API_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-
-    document.getElementById("status").innerText = "Daten an Google gesendet!";
+    try {
+        await fetch(API_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        document.getElementById("status").innerText = "✅ Erfolgreich gespeichert!";
+        document.getElementById("userName").value = "";
+        document.getElementById("userMoney").value = "";
+    } catch (e) {
+        document.getElementById("status").innerText = "❌ Fehler beim Speichern.";
+    }
 }
 </script>
 </body>
