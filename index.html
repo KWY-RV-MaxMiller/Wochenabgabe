@@ -90,6 +90,8 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 <script>
 const GOAL_MONEY = 300000;
 const GOAL_POWDER = 150;
+
+// Euer freier Cloud-Tunnel über kvdb.io (keine Keys oder Registrierung nötig!)
 const API_URL = "https://kvdb.io/MN878gS7vXpXpX7vXpXpX/tracker_live_v2_f83a2";
 
 let data = [];
@@ -107,7 +109,7 @@ const currentKW = getCurrentWeekNumber();
 document.getElementById("currentWeekTitle").textContent = `(Aktuelle Woche: KW ${currentKW})`;
 document.getElementById("week").value = currentKW;
 
-// Daten laden
+// Daten aus der Cloud laden
 async function loadFromCloud() {
   try {
     const response = await fetch(API_URL);
@@ -132,7 +134,7 @@ async function loadFromCloud() {
   render();
 }
 
-// Daten speichern
+// Daten in der Cloud speichern
 async function saveToCloud() {
   document.getElementById("loadingNotice").style.display = "block";
   const payload = { data, extras, userPhones };
@@ -149,3 +151,110 @@ async function saveToCloud() {
   document.getElementById("loadingNotice").style.display = "none";
   render();
 }
+
+function addExtra() {
+  const exM = document.getElementById("extraMoney");
+  const exP = document.getElementById("extraPowder");
+  const exC = document.getElementById("extraCases");
+
+  extras.money += (+exM.value || 0);
+  extras.powder += (+exP.value || 0);
+  extras.cases += (+exC.value || 0);
+  
+  exM.value = ""; exP.value = ""; exC.value = "";
+  saveToCloud();
+}
+
+function createUser() {
+  const inputNewName = document.getElementById("newUserName");
+  const inputNewPhone = document.getElementById("newUserPhone");
+  
+  const n = inputNewName.value.trim();
+  const phone = inputNewPhone.value.trim();
+  
+  if(!n) return alert("Bitte einen Namen für den neuen User eingeben.");
+  
+  userPhones[n] = phone || "";
+  inputNewName.value = "";
+  inputNewPhone.value = "";
+  saveToCloud();
+}
+
+function add() {
+  const inputName = document.getElementById("name");
+  const inputWeek = document.getElementById("week");
+  const inputMoney = document.getElementById("money");
+  const inputPowder = document.getElementById("powder");
+  const inputCases = document.getElementById("cases");
+
+  const n = inputName.value.trim();
+  const w = +inputWeek.value;
+  const m = +inputMoney.value || 0;
+  const p = +inputPowder.value || 0;
+  const c = +inputCases.value || 0;
+  
+  if(!n || !w) return alert("Bitte Name und Kalenderwoche eingeben.");
+  
+  if(userPhones[n] === undefined) userPhones[n] = "";
+  
+  data.push({n, w, m, p, c});
+  
+  inputName.value = "";
+  inputWeek.value = currentKW;
+  inputMoney.value = "";
+  inputPowder.value = "";
+  inputCases.value = "";
+  
+  saveToCloud();
+}
+
+function deleteEntry(index) {
+  if(confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
+    data.splice(index, 1);
+    saveToCloud();
+  }
+}
+
+function deleteUser(userName) {
+  if(confirm(`Möchtest du den User "${userName}" und ALLE seine Abgaben wirklich komplett löschen?`)) {
+    data = data.filter(entry => entry.n !== userName);
+    delete userPhones[userName];
+    saveToCloud();
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert("Nummer kopiert: " + text);
+  });
+}
+
+function render() {
+  let sm = 0, sp = 0, sc = 0;
+  const rows = document.getElementById("rows");
+  const userOverview = document.getElementById("userOverview");
+  
+  rows.innerHTML = "";
+  const users = {};
+
+  for(const name in userPhones) {
+    users[name] = {};
+    users[name][currentKW] = { money: 0, powder: 0 };
+  }
+
+  data.forEach((e, i) => {
+    sm += e.m; 
+    sp += e.p; 
+    sc += (e.c || 0);
+    
+    rows.innerHTML += `<tr>
+    <td>${e.n}</td>
+    <td>KW ${e.w}</td>
+    <td>${e.m.toLocaleString("de-DE")}</td>
+    <td>${e.p}</td>
+    <td>${e.c || 0}</td>
+    <td><button class="btn-danger" onclick="deleteEntry(${i})">❌ Löschen</button></td>
+    </tr>`;
+
+    if(!users[e.n]) users[e.n] = {};
+    if(!users[e.n][e.w]) users[e.n]
