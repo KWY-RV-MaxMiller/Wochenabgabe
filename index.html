@@ -4,39 +4,42 @@
 <meta charset="UTF-8">
 <title>Tracker mit Google Sheets</title>
 <style>
-/* Dein bisheriges CSS bleibt gleich */
-body{margin:0;background:#0b0b0d;color:#fff;font-family:sans-serif}
-.wrap{max-width:800px;margin:auto;padding:20px}
-button{padding:10px;background:#0a84ff;color:#fff;border:none;border-radius:8px;cursor:pointer}
+    body{background:#0b0b0d;color:#fff;font-family:sans-serif;padding:20px}
+    .card{background:#222;padding:20px;border-radius:15px;margin-bottom:10px}
+    input{padding:10px;width:80%;margin-bottom:10px}
+    button{padding:10px 20px;background:#0a84ff;border:none;border-radius:8px;color:#fff;cursor:pointer}
 </style>
 </head>
 <body>
-<div class="wrap">
-    <h1>🍎 Tracker</h1>
-    <input id="name" placeholder="Name">
-    <button onclick="saveData()">Daten speichern</button>
-</div>
+    <div class="card">
+        <h1>🍎 Wochen Tracker</h1>
+        <input id="userName" placeholder="Name">
+        <input id="userMoney" placeholder="Schwarzgeld" type="number">
+        <button onclick="saveData()">Speichern</button>
+    </div>
+    <div id="status"></div>
 
 <script>
-// DEINE NEUE URL
+// DEINE URL
 const API_URL = "https://script.google.com/macros/s/AKfycbybtiudUCe7UtnYXukgEJ9hB9R-4WgqZZxmy7pDZ1rRIsdCzU-eIezJQx1WctLRAFsQ/exec";
 
 async function saveData() {
-    const payload = { name: document.getElementById("name").value, time: new Date() };
+    const name = document.getElementById("userName").value;
+    const money = document.getElementById("userMoney").value;
     
-    // Daten an Google senden
+    // Wir senden die Daten als JSON-Text
+    const payload = { name: name, money: money, date: new Date().toLocaleDateString() };
+    
+    document.getElementById("status").innerText = "Sende Daten...";
+
     await fetch(API_URL, {
         method: "POST",
         mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
     });
-    alert("Gespeichert!");
-}
 
-async function loadData() {
-    const response = await fetch(API_URL);
-    const data = await response.json();
-    console.log("Daten aus Google:", data);
+    document.getElementById("status").innerText = "Daten an Google gesendet!";
 }
 </script>
 </body>
