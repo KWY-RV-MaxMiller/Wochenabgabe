@@ -91,8 +91,8 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 const GOAL_MONEY = 300000;
 const GOAL_POWDER = 150;
 
-// Euer freier Cloud-Tunnel über kvdb.io
-const API_URL = "https://kvdb.io/MN878gS7vXpXpX7vXpXpX/tracker_live_v2_f83a2";
+// Die neue, absolut stressfreie Verbindung über jsonbase
+const API_URL = "https://jsonbase.com/tracker_team_orga/abgaben_tracker_2026";
 
 let data = [];
 let extras = {money:0, powder:0, cases:0};
@@ -109,7 +109,7 @@ const currentKW = getCurrentWeekNumber();
 document.getElementById("currentWeekTitle").textContent = `(Aktuelle Woche: KW ${currentKW})`;
 document.getElementById("week").value = currentKW;
 
-// Daten aus der Cloud laden
+// Daten laden
 async function loadFromCloud() {
   try {
     const response = await fetch(API_URL);
@@ -120,33 +120,26 @@ async function loadFromCloud() {
         extras = cloudData.extras || {money:0, powder:0, cases:0};
         userPhones = cloudData.userPhones || {};
       }
-    } else {
-      data = [];
-      extras = {money:0, powder:0, cases:0};
-      userPhones = {};
     }
   } catch (e) {
-    console.log("Erster Start: Cloud noch leer.");
-    data = [];
-    extras = {money:0, powder:0, cases:0};
-    userPhones = {};
+    console.log("Noch keine Daten in der Cloud vorhanden. Starte leer.");
   }
   render();
 }
 
-// Daten in der Cloud speichern
+// Daten speichern
 async function saveToCloud() {
   document.getElementById("loadingNotice").style.display = "block";
   const payload = { data, extras, userPhones };
   
   try {
     await fetch(API_URL, {
-      method: "POST",
+      method: "PUT",
       body: JSON.stringify(payload),
       headers: { "Content-Type": "application/json" }
     });
   } catch(e) {
-    console.error("Speicherfehler:", e);
+    console.error("Fehler beim Speichern:", e);
   }
   document.getElementById("loadingNotice").style.display = "none";
   render();
