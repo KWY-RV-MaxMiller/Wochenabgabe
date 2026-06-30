@@ -36,7 +36,7 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 </head>
 <body>
 <div class="wrap">
-<div id="loadingNotice" class="loading-notice">🔄 Lade aktuelle Daten aus der Cloud...</div>
+<div id="loadingNotice" class="loading-notice">🔄 Synchronisiere mit Cloud...</div>
 
 <h1>🍎 Wochen Tracker <span id="currentWeekTitle" style="font-size:18px;color:#aaa;"></span></h1>
 
@@ -90,15 +90,10 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 <script>
 const GOAL_MONEY = 300000;
 const GOAL_POWDER = 150;
-  
-  // ⚠️ HIER DEINE BIN-ID ZWISCHEN DIE ANFÜHRUNGSZEICHEN SETZEN!
+
+// Deine feste Datenbank-ID ist hier bereits eingetragen:
 const BIN_ID = "6a4412eef5f4af5e29494384";
 const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-
-// Hier generieren wir einen einmaligen geheimen Schlüssel für euren gemeinsamen Tracker
-// Ändere die Zahl "987654321" in irgendetwas anderes ab, damit niemand euren Tracker errät!
-const TRACKER_ID = "mein_wochen_tracker_987654321";
-const API_URL = `https://kvdb.io/MN878gS7vXpXpX7vXpXpX/${TRACKER_ID}`;
 
 let data = [];
 let extras = {money:0, powder:0, cases:0};
@@ -115,42 +110,54 @@ const currentKW = getCurrentWeekNumber();
 document.getElementById("currentWeekTitle").textContent = `(Aktuelle Woche: KW ${currentKW})`;
 document.getElementById("week").value = currentKW;
 
-// Daten aus der Cloud laden
+// Daten laden mit automatischem Reparatur-Netz für die neue Box
 async function loadFromCloud() {
-  document.getElementById("loadingNotice").style.display = "block";
   try {
-    const response = await fetch(API_URL);
+    const response = await fetch(`${API_URL}/latest`, {
+      headers: { "X-Bin-Meta": "false" }
+    });
+    
     if (response.ok) {
       const cloudData = await response.json();
-      data = cloudData.data || [];
-      extras = cloudData.extras || {money:0, powder:0, cases:0};
-      userPhones = cloudData.userPhones || {};
+      
+      if (!cloudData || Object.keys(cloudData).length === 0 || !cloudData.data) {
+        data = [];
+        extras = {money:0, powder:0, cases:0};
+        userPhones = {};
+        await saveToCloud();
+      } else {
+        data = cloudData.data || [];
+        extras = cloudData.extras || {money:0, powder:0, cases:0};
+        userPhones = cloudData.userPhones || {};
+      }
+      render();
     }
   } catch (e) {
-    console.log("Noch keine Cloud-Daten vorhanden oder Fehler, starte leer.");
+    console.error("Fehler beim Laden:", e);
+    data = data || [];
+    extras = extras || {money:0, powder:0, cases:0};
+    userPhones = userPhones || {};
+    render();
   }
-  document.getElementById("loadingNotice").style.display = "none";
-  render();
 }
 
-// Daten in die Cloud speichern
+// Daten speichern
 async function saveToCloud() {
-  document.getElementById("loadingNotice").textContent = "💾 Speichere in Cloud...";
   document.getElementById("loadingNotice").style.display = "block";
-  
   const payload = { data, extras, userPhones };
   
   try {
-    await fetch(API_URL, {
-      method: "POST",
+    const response = await fetch(API_URL, {
+      method: "PUT",
       body: JSON.stringify(payload),
       headers: { "Content-Type": "application/json" }
     });
+    if(!response.ok) {
+      alert("Speichern fehlgeschlagen!");
+    }
   } catch(e) {
-    alert("Fehler beim Speichern in der Cloud!");
+    alert("Netzwerkfehler beim Speichern!");
   }
-  
-  document.getElementById("loadingNotice").textContent = "🔄 Lade aktuelle Daten aus der Cloud...";
   document.getElementById("loadingNotice").style.display = "none";
   render();
 }
