@@ -91,7 +91,7 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 const GOAL_MONEY = 300000;
 const GOAL_POWDER = 150;
 
-// Euer freier Cloud-Tunnel über kvdb.io (keine Keys oder Registrierung nötig!)
+// Euer freier Cloud-Tunnel über kvdb.io
 const API_URL = "https://kvdb.io/MN878gS7vXpXpX7vXpXpX/tracker_live_v2_f83a2";
 
 let data = [];
@@ -257,4 +257,88 @@ function render() {
     </tr>`;
 
     if(!users[e.n]) users[e.n] = {};
-    if(!users[e.n][e.w]) users[e.n]
+    if(!users[e.n][e.w]) users[e.n][e.w] = { money: 0, powder: 0 };
+    
+    users[e.n][e.w].money += e.m;
+    users[e.n][e.w].powder += e.p;
+  });
+
+  userOverview.innerHTML = "";
+  for(const userName in users) {
+    const phone = userPhones[userName] || "";
+    let phoneHTML = "";
+    
+    if(phone) {
+      phoneHTML = `<span class="user-num">[${phone}] <button class="btn-copy" onclick="copyToClipboard('${phone.replace(/'/g, "\\'")}')">📋 Kopieren</button></span>`;
+    }
+
+    let userHTML = `
+     <div class="user-group">
+       <div class="user-header">
+         <h3 class="user-title">👤 ${userName} ${phoneHTML}</h3>
+         <button class="btn-user-danger" onclick="deleteUser('${userName.replace(/'/g, "\\'")}')">❌ User komplett löschen</button>
+       </div>
+       <ul class="week-status-list">`;
+    
+    const sortedWeeks = Object.keys(users[userName]).sort((a,b) => a - b);
+    
+    sortedWeeks.forEach(w => {
+      const weekData = users[userName][w];
+      const isGoalMet = weekData.money >= GOAL_MONEY && weekData.powder >= GOAL_POWDER;
+      const isCurrent = (+w === currentKW);
+      
+      let statusClass = '';
+      let statusText = '';
+      
+      if (isGoalMet) {
+        statusText = '✅ Erfüllt';
+        statusClass = 'ok';
+      } else if (weekData.money === 0 && weekData.powder === 0) {
+        if (isCurrent) {
+          statusText = 'noch offen';
+          statusClass = 'yellow';
+        } else {
+          statusText = '❌ Nicht abgegeben';
+          statusClass = 'bad';
+        }
+      } else {
+        statusText = 'noch offen';
+        statusClass = 'yellow';
+      }
+      
+      const isCurrentWeekBadge = isCurrent ? `<span class="current-week-badge">Aktuelle Woche</span>` : '';
+      
+      userHTML += `
+        <li class="week-status-item">
+          <strong>KW ${w}:</strong> 
+          <span class="status-badge ${statusClass}">${statusText}</span> 
+          ${isCurrentWeekBadge}
+          <span style="color:#aaa; font-size:14px; margin-left:5px;">(💵 ${weekData.money.toLocaleString("de-DE")} / ${GOAL_MONEY.toLocaleString("de-DE")} | 💥 ${weekData.powder} / ${GOAL_POWDER})</span>
+        </li>`;
+    });
+    
+    userHTML += `</ul></div>`;
+    userOverview.innerHTML += userHTML;
+  }
+  
+  if(Object.keys(users).length === 0) {
+    userOverview.innerHTML = "<p>Noch keine User-Einträge vorhanden.</p>";
+  }
+
+  const totalMoney = sm + extras.money;
+  const totalPowder = sp + extras.powder;
+  const totalCases = sc + extras.cases;
+  
+  document.getElementById("sumMoney").textContent = totalMoney.toLocaleString("de-DE");
+  document.getElementById("sumPowder").textContent = totalPowder.toLocaleString("de-DE");
+  document.getElementById("sumCases").textContent = totalCases.toLocaleString("de-DE");
+}
+
+// Beim Start Daten aus der Cloud laden
+loadFromCloud();
+
+// Alle 10 Sekunden automatisch prüfen, ob der Kollege was eingetragen hat
+setInterval(loadFromCloud, 10000);
+</script>
+</body>
+</html>
