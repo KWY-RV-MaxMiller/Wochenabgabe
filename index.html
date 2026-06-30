@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tracker</title>
+<title>Tracker Local</title>
 <style>
 body{margin:0;background:#0b0b0d;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .wrap{max-width:1100px;margin:auto;padding:24px}
@@ -31,12 +31,12 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 .week-status-list {margin:5px 0;padding-left:20px;list-style-type: none;}
 .week-status-item {padding:6px 0;display:flex;align-items:center;gap:10px;}
 .current-week-badge {background:#0a84ff;color:#fff;font-size:11px;padding:2px 6px;border-radius:6px;}
-.loading-notice { background: #ff9500; color: #000; padding: 10px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-weight: bold; display: none; }
+.loading-notice { background: #31d158; color: #000; padding: 10px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-weight: bold; display: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
-<div id="loadingNotice" class="loading-notice">🔄 Synchronisiere mit Cloud...</div>
+<div id="loadingNotice" class="loading-notice">✅ Lokal im Browser gespeichert!</div>
 
 <h1>🍎 Wochen Tracker <span id="currentWeekTitle" style="font-size:18px;color:#aaa;"></span></h1>
 
@@ -91,9 +91,6 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 const GOAL_MONEY = 300000;
 const GOAL_POWDER = 150;
 
-// Die neue, absolut stressfreie Verbindung über jsonbase
-const API_URL = "https://jsonbase.com/tracker_team_orga/abgaben_tracker_2026";
-
 let data = [];
 let extras = {money:0, powder:0, cases:0};
 let userPhones = {};
@@ -109,39 +106,36 @@ const currentKW = getCurrentWeekNumber();
 document.getElementById("currentWeekTitle").textContent = `(Aktuelle Woche: KW ${currentKW})`;
 document.getElementById("week").value = currentKW;
 
-// Daten laden
-async function loadFromCloud() {
+// Daten aus dem lokalen Speicher laden (unzerstörbar!)
+function loadFromCloud() {
   try {
-    const response = await fetch(API_URL);
-    if (response.ok) {
-      const cloudData = await response.json();
-      if (cloudData) {
-        data = cloudData.data || [];
-        extras = cloudData.extras || {money:0, powder:0, cases:0};
-        userPhones = cloudData.userPhones || {};
-      }
+    const localData = localStorage.getItem("tracker_local_storage_v1");
+    if (localData) {
+      const parsed = JSON.parse(localData);
+      data = parsed.data || [];
+      extras = parsed.extras || {money:0, powder:0, cases:0};
+      userPhones = parsed.userPhones || {};
+    } else {
+      data = [];
+      extras = {money:0, powder:0, cases:0};
+      userPhones = {};
     }
   } catch (e) {
-    console.log("Noch keine Daten in der Cloud vorhanden. Starte leer.");
+    console.error("Fehler beim Laden:", e);
   }
   render();
 }
 
-// Daten speichern
-async function saveToCloud() {
-  document.getElementById("loadingNotice").style.display = "block";
+// Daten im Browser-Speicher sichern
+function saveToCloud() {
   const payload = { data, extras, userPhones };
+  localStorage.setItem("tracker_local_storage_v1", JSON.stringify(payload));
   
-  try {
-    await fetch(API_URL, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "application/json" }
-    });
-  } catch(e) {
-    console.error("Fehler beim Speichern:", e);
-  }
-  document.getElementById("loadingNotice").style.display = "none";
+  // Kurze Erfolgsmeldung einblenden
+  const notice = document.getElementById("loadingNotice");
+  notice.style.display = "block";
+  setTimeout(() => { notice.style.display = "none"; }, 1500);
+  
   render();
 }
 
@@ -292,46 +286,3 @@ function render() {
           statusClass = 'yellow';
         } else {
           statusText = '❌ Nicht abgegeben';
-          statusClass = 'bad';
-        }
-      } else {
-        statusText = 'noch offen';
-        statusClass = 'yellow';
-      }
-      
-      const isCurrentWeekBadge = isCurrent ? `<span class="current-week-badge">Aktuelle Woche</span>` : '';
-      
-      userHTML += `
-        <li class="week-status-item">
-          <strong>KW ${w}:</strong> 
-          <span class="status-badge ${statusClass}">${statusText}</span> 
-          ${isCurrentWeekBadge}
-          <span style="color:#aaa; font-size:14px; margin-left:5px;">(💵 ${weekData.money.toLocaleString("de-DE")} / ${GOAL_MONEY.toLocaleString("de-DE")} | 💥 ${weekData.powder} / ${GOAL_POWDER})</span>
-        </li>`;
-    });
-    
-    userHTML += `</ul></div>`;
-    userOverview.innerHTML += userHTML;
-  }
-  
-  if(Object.keys(users).length === 0) {
-    userOverview.innerHTML = "<p>Noch keine User-Einträge vorhanden.</p>";
-  }
-
-  const totalMoney = sm + extras.money;
-  const totalPowder = sp + extras.powder;
-  const totalCases = sc + extras.cases;
-  
-  document.getElementById("sumMoney").textContent = totalMoney.toLocaleString("de-DE");
-  document.getElementById("sumPowder").textContent = totalPowder.toLocaleString("de-DE");
-  document.getElementById("sumCases").textContent = totalCases.toLocaleString("de-DE");
-}
-
-// Beim Start Daten aus der Cloud laden
-loadFromCloud();
-
-// Alle 10 Sekunden automatisch prüfen, ob der Kollege was eingetragen hat
-setInterval(loadFromCloud, 10000);
-</script>
-</body>
-</html>
