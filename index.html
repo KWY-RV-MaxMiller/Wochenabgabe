@@ -286,3 +286,43 @@ function render() {
           statusClass = 'yellow';
         } else {
           statusText = '❌ Nicht abgegeben';
+          statusClass = 'bad';
+        }
+      } else {
+        statusText = 'noch offen';
+        statusClass = 'yellow';
+      }
+      
+      const isCurrentWeekBadge = isCurrent ? `<span class="current-week-badge">Aktuelle Woche</span>` : '';
+      
+      userHTML += `
+        <li class="week-status-item">
+          <strong>KW ${w}:</strong> 
+          <span class="status-badge ${statusClass}">${statusText}</span> 
+          ${isCurrentWeekBadge}
+          <span style="color:#aaa; font-size:14px; margin-left:5px;">(💵 ${weekData.money.toLocaleString("de-DE")} / ${GOAL_MONEY.toLocaleString("de-DE")} | 💥 ${weekData.powder} / ${GOAL_POWDER})</span>
+        </li>`;
+    });
+    
+    userHTML += `</ul></div>`;
+    userOverview.innerHTML += userHTML;
+  }
+  
+  if(Object.keys(users).length === 0) {
+    userOverview.innerHTML = "<p>Noch keine User-Einträge vorhanden.</p>";
+  }
+
+  const totalMoney = sm + extras.money;
+  const totalPowder = sp + extras.powder;
+  const totalCases = sc + extras.cases;
+  
+  document.getElementById("sumMoney").textContent = totalMoney.toLocaleString("de-DE");
+  document.getElementById("sumPowder").textContent = totalPowder.toLocaleString("de-DE");
+  document.getElementById("sumCases").textContent = totalCases.toLocaleString("de-DE");
+}
+
+// Beim Start lokal laden
+loadFromCloud();
+</script>
+</body>
+</html>
