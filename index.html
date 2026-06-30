@@ -31,10 +31,13 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 .week-status-list {margin:5px 0;padding-left:20px;list-style-type: none;}
 .week-status-item {padding:6px 0;display:flex;align-items:center;gap:10px;}
 .current-week-badge {background:#0a84ff;color:#fff;font-size:11px;padding:2px 6px;border-radius:6px;}
+.loading-notice { background: #ff9500; color: #000; padding: 10px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-weight: bold; display: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
+<div id="loadingNotice" class="loading-notice">🔄 Lade aktuelle Daten aus der Cloud...</div>
+
 <h1>🍎 Wochen Tracker <span id="currentWeekTitle" style="font-size:18px;color:#aaa;"></span></h1>
 
 <div class="grid">
@@ -59,7 +62,6 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 <input id="cases" type="number" placeholder="Patronenhülsen">
 <button onclick="add()">Speichern</button>
 </div>
-
 
 <div class="card">
 <h2>📦 Direkter Gesamtbestand</h2>
@@ -89,17 +91,15 @@ th,td{padding:10px;border-bottom:1px solid #333;text-align:left}
 const GOAL_MONEY = 300000;
 const GOAL_POWDER = 150;
 
-// Daten laden mit Fehlerabsicherung
+// Hier generieren wir einen einmaligen geheimen Schlüssel für euren gemeinsamen Tracker
+// Ändere die Zahl "987654321" in irgendetwas anderes ab, damit niemand euren Tracker errät!
+const TRACKER_ID = "mein_wochen_tracker_987654321";
+const API_URL = `https://kvdb.io/MN878gS7vXpXpX7vXpXpX/${TRACKER_ID}`;
+
 let data = [];
-try { data = JSON.parse(localStorage.getItem("tracker") || "[]"); } catch(e) { data = []; }
-
 let extras = {money:0, powder:0, cases:0};
-try { extras = JSON.parse(localStorage.getItem("tracker_extras") || '{"money":0,"powder":0,"cases":0}'); } catch(e) { extras = {money:0, powder:0, cases:0}; }
-
 let userPhones = {};
-try { userPhones = JSON.parse(localStorage.getItem("tracker_phones") || "{}"); } catch(e) { userPhones = {}; }
 
-// Aktuelle Woche ermitteln
 function getCurrentWeekNumber() {
   const currentDate = new Date();
   const startOfYear = new Date(currentDate.getFullYear(), 0, 1);
@@ -111,10 +111,43 @@ const currentKW = getCurrentWeekNumber();
 document.getElementById("currentWeekTitle").textContent = `(Aktuelle Woche: KW ${currentKW})`;
 document.getElementById("week").value = currentKW;
 
-function save() {
-  localStorage.setItem("tracker", JSON.stringify(data));
-  localStorage.setItem("tracker_extras", JSON.stringify(extras));
-  localStorage.setItem("tracker_phones", JSON.stringify(userPhones));
+// Daten aus der Cloud laden
+async function loadFromCloud() {
+  document.getElementById("loadingNotice").style.display = "block";
+  try {
+    const response = await fetch(API_URL);
+    if (response.ok) {
+      const cloudData = await response.json();
+      data = cloudData.data || [];
+      extras = cloudData.extras || {money:0, powder:0, cases:0};
+      userPhones = cloudData.userPhones || {};
+    }
+  } catch (e) {
+    console.log("Noch keine Cloud-Daten vorhanden oder Fehler, starte leer.");
+  }
+  document.getElementById("loadingNotice").style.display = "none";
+  render();
+}
+
+// Daten in die Cloud speichern
+async function saveToCloud() {
+  document.getElementById("loadingNotice").textContent = "💾 Speichere in Cloud...";
+  document.getElementById("loadingNotice").style.display = "block";
+  
+  const payload = { data, extras, userPhones };
+  
+  try {
+    await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch(e) {
+    alert("Fehler beim Speichern in der Cloud!");
+  }
+  
+  document.getElementById("loadingNotice").textContent = "🔄 Lade aktuelle Daten aus der Cloud...";
+  document.getElementById("loadingNotice").style.display = "none";
   render();
 }
 
@@ -128,7 +161,7 @@ function addExtra() {
   extras.cases += (+exC.value || 0);
   
   exM.value = ""; exP.value = ""; exC.value = "";
-  save();
+  saveToCloud();
 }
 
 function createUser() {
@@ -138,15 +171,12 @@ function createUser() {
   const n = inputNewName.value.trim();
   const phone = inputNewPhone.value.trim();
   
-  if(!n) {
-    return alert("Bitte einen Namen für den neuen User eingeben.");
-  }
+  if(!n) return alert("Bitte einen Namen für den neuen User eingeben.");
   
   userPhones[n] = phone || "";
-  
   inputNewName.value = "";
   inputNewPhone.value = "";
-  save();
+  saveToCloud();
 }
 
 function add() {
@@ -162,13 +192,9 @@ function add() {
   const p = +inputPowder.value || 0;
   const c = +inputCases.value || 0;
   
-  if(!n || !w) {
-    return alert("Bitte Name und Kalenderwoche eingeben.");
-  }
+  if(!n || !w) return alert("Bitte Name und Kalenderwoche eingeben.");
   
-  if(userPhones[n] === undefined) {
-    userPhones[n] = "";
-  }
+  if(userPhones[n] === undefined) userPhones[n] = "";
   
   data.push({n, w, m, p, c});
   
@@ -178,13 +204,13 @@ function add() {
   inputPowder.value = "";
   inputCases.value = "";
   
-  save();
+  saveToCloud();
 }
 
 function deleteEntry(index) {
   if(confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
     data.splice(index, 1);
-    save();
+    saveToCloud();
   }
 }
 
@@ -192,15 +218,13 @@ function deleteUser(userName) {
   if(confirm(`Möchtest du den User "${userName}" und ALLE seine Abgaben wirklich komplett löschen?`)) {
     data = data.filter(entry => entry.n !== userName);
     delete userPhones[userName];
-    save();
+    saveToCloud();
   }
 }
 
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
     alert("Nummer kopiert: " + text);
-  }).catch(err => {
-    console.error("Fehler beim Kopieren: ", err);
   });
 }
 
@@ -212,13 +236,11 @@ function render() {
   rows.innerHTML = "";
   const users = {};
 
-  // Alle registrierten User vorbereiten
   for(const name in userPhones) {
     users[name] = {};
     users[name][currentKW] = { money: 0, powder: 0 };
   }
 
-  // Einträge verarbeiten
   data.forEach((e, i) => {
     sm += e.m; 
     sp += e.p; 
@@ -233,18 +255,13 @@ function render() {
     <td><button class="btn-danger" onclick="deleteEntry(${i})">❌ Löschen</button></td>
     </tr>`;
 
-    if(!users[e.n]) {
-      users[e.n] = {};
-    }
-
-    if(!users[e.n][e.w]) {
-      users[e.n][e.w] = { money: 0, powder: 0 };
-    }
+    if(!users[e.n]) users[e.n] = {};
+    if(!users[e.n][e.w]) users[e.n][e.w] = { money: 0, powder: 0 };
+    
     users[e.n][e.w].money += e.m;
     users[e.n][e.w].powder += e.p;
   });
 
-  // Wochenstatus rendern
   userOverview.innerHTML = "";
   for(const userName in users) {
     const phone = userPhones[userName] || "";
@@ -307,7 +324,6 @@ function render() {
     userOverview.innerHTML = "<p>Noch keine User-Einträge vorhanden.</p>";
   }
 
-  // Endsummen anzeigen
   const totalMoney = sm + extras.money;
   const totalPowder = sp + extras.powder;
   const totalCases = sc + extras.cases;
@@ -317,14 +333,11 @@ function render() {
   document.getElementById("sumCases").textContent = totalCases.toLocaleString("de-DE");
 }
 
-// Initialer Start
-render();
+// Beim Start Daten aus der Cloud laden
+loadFromCloud();
+
+// Alle 10 Sekunden automatisch prüfen, ob der Kollege was eingetragen hat
+setInterval(loadFromCloud, 10000);
 </script>
 </body>
 </html>
-
-<button onclick="TogetherJS(this); return false;" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
-  Mit Freund teilen
-</button>
-
-<script src="https://togetherjs.com/togetherjs-min.js"></script>
