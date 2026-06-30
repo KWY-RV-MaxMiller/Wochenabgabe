@@ -4,48 +4,50 @@
 <meta charset="UTF-8">
 <title>Wochen Tracker</title>
 <style>
-body{background:#0b0b0d;color:#fff;font-family:sans-serif;padding:20px}
-.card{background:#222;padding:20px;border-radius:15px;margin-bottom:10px;max-width:500px}
-input{padding:10px;width:90%;margin-bottom:10px;border-radius:8px;border:none}
-button{padding:10px 20px;background:#0a84ff;border:none;border-radius:8px;color:#fff;cursor:pointer}
+    body{background:#0b0b0d;color:#fff;font-family:sans-serif;padding:20px}
+    .card{background:#222;padding:20px;border-radius:15px;margin-bottom:15px;max-width:800px}
+    input{padding:10px;width:100%;margin-bottom:10px;border-radius:8px;border:none}
+    button{padding:10px 20px;background:#0a84ff;border:none;border-radius:8px;color:#fff;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:20px}
+    th,td{padding:10px;border:1px solid #444;text-align:left}
 </style>
 </head>
 <body>
     <div class="card">
         <h1>🍎 Wochen Tracker</h1>
-        <input id="userName" placeholder="Name">
-        <input id="userMoney" placeholder="Schwarzgeld" type="number">
-        <button onclick="saveData()">Daten speichern</button>
-        <p id="status"></p>
+        <input id="name" placeholder="Name">
+        <input id="week" type="number" placeholder="KW">
+        <input id="money" type="number" placeholder="Schwarzgeld">
+        <button onclick="addData()">Speichern</button>
+    </div>
+    <div class="card">
+        <h2>Übersicht</h2>
+        <table id="dataTable">
+            <tr><th>Name</th><th>KW</th><th>Schwarzgeld</th><th>Aktion</th></tr>
+        </table>
     </div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbybtiudUCe7UtnYXukgEJ9hB9R-4WgqZZxmy7pDZ1rRIsdCzU-eIezJQx1WctLRAFsQ/exec";
 
-async function saveData() {
-    const name = document.getElementById("userName").value;
-    const money = document.getElementById("userMoney").value;
+// 1. Daten speichern
+async function addData() {
+    const data = {
+        n: document.getElementById('name').value,
+        w: document.getElementById('week').value,
+        m: document.getElementById('money').value
+    };
     
-    if(!name) return alert("Bitte Name eingeben!");
-
-    const payload = { name, money, date: new Date().toLocaleDateString() };
-    
-    document.getElementById("status").innerText = "Sende an Google...";
-
-    try {
-        await fetch(API_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        document.getElementById("status").innerText = "✅ Erfolgreich gespeichert!";
-        document.getElementById("userName").value = "";
-        document.getElementById("userMoney").value = "";
-    } catch (e) {
-        document.getElementById("status").innerText = "❌ Fehler beim Speichern.";
-    }
+    await fetch(API_URL, {
+        method: "POST",
+        mode: "no-cors",
+        body: JSON.stringify(data)
+    });
+    location.reload(); // Seite neu laden um Tabelle zu aktualisieren
 }
+
+// 2. Daten laden (Hierfür müsstest du im Apps Script einen "doGet" Handler haben, 
+// der die Tabelleninhalte als JSON zurückgibt)
 </script>
 </body>
 </html>
